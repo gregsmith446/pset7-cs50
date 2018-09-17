@@ -1,21 +1,20 @@
+# imports
 import os
-
 from cs50 import SQL
 from flask import Flask, flash, redirect, render_template, request, session
 from flask_session import Session
 from tempfile import mkdtemp
 from werkzeug.exceptions import default_exceptions
 from werkzeug.security import check_password_hash, generate_password_hash
-
 from helpers import apology, login_required, lookup, usd
 
-# Configure application
+# Configure flask application
 app = Flask(__name__)
 
 # Ensure templates are auto-reloaded
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
-# Ensure responses aren't cached
+# Ensure user responses aren't cached
 @app.after_request
 def after_request(response):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -23,7 +22,7 @@ def after_request(response):
     response.headers["Pragma"] = "no-cache"
     return response
 
-# Custom filter
+# Custom jinja filter converts stock data into USD format
 app.jinja_env.filters["usd"] = usd
 
 # Configure session to use filesystem (instead of signed cookies)
@@ -33,16 +32,17 @@ app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
 # Configure CS50 Library to use SQLite database
+# db is now equal to finance.db
 db = SQL("sqlite:///finance.db")
 
-
+# user's home page - requires login
 @app.route("/")
 @login_required
 def index():
     """Show portfolio of stocks"""
     return apology("TODO")
 
-
+# user's buy page - requires login
 @app.route("/buy", methods=["GET", "POST"])
 @login_required
 def buy():
@@ -50,6 +50,7 @@ def buy():
     return apology("TODO")
 
 
+# user's history page - requires login
 @app.route("/history")
 @login_required
 def history():
@@ -57,6 +58,7 @@ def history():
     return apology("TODO")
 
 
+# login page
 @app.route("/login", methods=["GET", "POST"])
 def login():
     """Log user in"""
@@ -93,7 +95,7 @@ def login():
     else:
         return render_template("login.html")
 
-
+# log out page
 @app.route("/logout")
 def logout():
     """Log user out"""
@@ -104,7 +106,7 @@ def logout():
     # Redirect user to login form
     return redirect("/")
 
-
+# user's get quote page - requires login
 @app.route("/quote", methods=["GET", "POST"])
 @login_required
 def quote():
@@ -112,19 +114,20 @@ def quote():
     return apology("TODO")
 
 
+# user registrtion page
 @app.route("/register", methods=["GET", "POST"])
 def register():
     """Register user"""
     return apology("TODO")
 
-
+# user sell page - login required
 @app.route("/sell", methods=["GET", "POST"])
 @login_required
 def sell():
     """Sell shares of stock"""
     return apology("TODO")
 
-
+# error handler to be used in application.py
 def errorhandler(e):
     """Handle error"""
     return apology(e.name, e.code)
