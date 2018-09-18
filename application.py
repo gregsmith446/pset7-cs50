@@ -40,19 +40,8 @@ db = SQL("sqlite:///finance.db")
 @login_required
 def index():
     """Show portfolio of stocks"""
-    # look up the current user
-    users = db.execute("SELECT cash FROM users WHERE id = :user_id", user_id=session["user_id"])
-    stocks = db.execute(
-            "SELECT symbol, SUM(shares) as total_shares FROM transactions WHERE user_id = :user_id GROUP BY symbol HAVING total_shares > 0", user_id=session["user_id"])
-    quotes = {}
 
-    for stock in stocks:
-        quotes[stock["symbol"]] = lookup(stock["symbol"])
-
-    cash_remaining = users[0]["cash"]
-    total = cash_remaining
-
-    return render_template("portfolio.html", quotes=quotes, stocks=stocks, total=total, cash_remaining=cash_remaining)
+    return render_template("portfolio.html")
 
 # user's buy page - requires login
 @app.route("/buy", methods=["GET", "POST"])
@@ -123,51 +112,68 @@ def logout():
 @login_required
 def quote():
     """Get stock quote."""
-    return apology("TODO")
+
+    #if user gets to page via POST by submitting a form
+    if request.method == "POST":
+        # use the lookup() helper function to get the stock quote
+        # lookup(), given a stock symbol, returns a stock quote in the form of a dict'
+        # contacts yahoo finance API, gets response, parse response into: name, price, symbol.
+        quote = lookup(request.form.get("symbol"))
+
+        # if there is no stock match
+        if quote == None:
+            return apology("not a valid symbol", 400)
+
+        # if there is, set quote == quote + render the quoted.html page
+        # that page has the requested quote data
+        return render_template("quoted.html", quote=quote)
+
+    else: # the user reached route via GET, send them back to the page to request a quote
+        return render_template("quote.html")
 
 
 # user registration page
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    """Register user"""
 
-    # submit user's input via POST to /register
-    # when the request method is POST, aka the user attempting to register
-    # follow this logic
+    # User reached route via POST (as by submitting a form via POST)
     if request.method == "POST":
 
-        # require a username, no blank fields
+        # Ensure username was submitted
         if not request.form.get("username"):
-            return apology("Must Provide Username")
+            return apology("must provide username", 400)
 
-        # require a password, no blank fields
+        # Ensure password was submitted
         elif not request.form.get("password"):
-            return apology("Must Provide Password")
+            return apology("must provide password", 400)
 
-        # require that password matches verified password
-        elif request.form.get("password") != request.form.get("passwordagain"):
-            return apology("Passwords must be Identical")
+        # Ensure password and confirmation, 'passwordagain' match
+        elif not request.form.get("password") == request.form.get("passwordagain"):
+            return apology("passwords do not match", 400)
 
-        # once at this step, registration data is valid
-        # INSERT the new user into users, storing a hash of the user's password (not the password)
-        result = db.execute("INSERT INTO users (username, hash) \
-                            VALUES(:username, :hash)", \
-                            username=request.form.get("username"), \
-                            hash = generate_password_hash(request.form.get("password")))
+        # hash the password and insert a new user into the database
+        hash = generate_password_hash(request.form.get("password"))
+        new_user_id = db.execute("INSERT INTO users (username, hash) VALUES(:username, :hash)",
+                                 username=request.form.get("username"),
+                                 hash=hash)
 
-        if not result:
-            return apology("username already exists, pick different one or login with existing account")
+        # if username already exists, return apology
+        if not new_user_id:
+            return apology("username taken", 400)
 
-        # log user in automatically when successfully registered
-        session["user_id"] = result
+        # Remember which user has logged in
+        session["user_id"] = new_user_id
 
-        # redirect user to home page
-        return redirect("/")
+        # Display a flash message
+        flash("Registered!")
 
+        # Redirect user to home page
+        return redirect(url_for("index"))
+
+    # User reached route via GET, not POST (as by clicking a link or via redirect)
     else:
         return render_template("register.html")
-
-    # when this is done, you will be able to login + logout with new registered user
-    # Can see the new rows in phpLITEadmin
 
 # user sell page - login required
 @app.route("/sell", methods=["GET", "POST"])
