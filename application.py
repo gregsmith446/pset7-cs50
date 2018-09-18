@@ -1,7 +1,7 @@
 # imports
 import os
 from cs50 import SQL
-from flask import Flask, flash, redirect, render_template, request, session
+from flask import Flask, flash, redirect, render_template, request, session, url_for
 from flask_session import Session
 from tempfile import mkdtemp
 from werkzeug.exceptions import default_exceptions
@@ -40,7 +40,19 @@ db = SQL("sqlite:///finance.db")
 @login_required
 def index():
     """Show portfolio of stocks"""
-    return apology("TODO")
+    # look up the current user
+    users = db.execute("SELECT cash FROM users WHERE id = :user_id", user_id=session["user_id"])
+    stocks = db.execute(
+            "SELECT symbol, SUM(shares) as total_shares FROM transactions WHERE user_id = :user_id GROUP BY symbol HAVING total_shares > 0", user_id=session["user_id"])
+    quotes = {}
+
+    for stock in stocks:
+        quotes[stock["symbol"]] = lookup(stock["symbol"])
+
+    cash_remaining = users[0]["cash"]
+    total = cash_remaining
+
+    return render_template("portfolio.html", quotes=quotes, stocks=stocks, total=total, cash_remaining=cash_remaining)
 
 # user's buy page - requires login
 @app.route("/buy", methods=["GET", "POST"])
@@ -114,11 +126,48 @@ def quote():
     return apology("TODO")
 
 
-# user registrtion page
+# user registration page
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    """Register user"""
-    return apology("TODO")
+
+    # submit user's input via POST to /register
+    # when the request method is POST, aka the user attempting to register
+    # follow this logic
+    if request.method == "POST":
+
+        # require a username, no blank fields
+        if not request.form.get("username"):
+            return apology("Must Provide Username")
+
+        # require a password, no blank fields
+        elif not request.form.get("password"):
+            return apology("Must Provide Password")
+
+        # require that password matches verified password
+        elif request.form.get("password") != request.form.get("passwordagain"):
+            return apology("Passwords must be Identical")
+
+        # once at this step, registration data is valid
+        # INSERT the new user into users, storing a hash of the user's password (not the password)
+        result = db.execute("INSERT INTO users (username, hash) \
+                            VALUES(:username, :hash)", \
+                            username=request.form.get("username"), \
+                            hash = generate_password_hash(request.form.get("password")))
+
+        if not result:
+            return apology("username already exists, pick different one or login with existing account")
+
+        # log user in automatically when successfully registered
+        session["user_id"] = result
+
+        # redirect user to home page
+        return redirect("/")
+
+    else:
+        return render_template("register.html")
+
+    # when this is done, you will be able to login + logout with new registered user
+    # Can see the new rows in phpLITEadmin
 
 # user sell page - login required
 @app.route("/sell", methods=["GET", "POST"])
