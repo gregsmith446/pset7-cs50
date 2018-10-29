@@ -48,8 +48,60 @@ def index():
 @login_required
 def buy():
     """Buy shares of stock"""
-    return apology("TODO")
 
+    #if user gets to page via POST by submitting a form
+    if request.method == "POST":
+        # immediately set quote == to stock symbol
+        quote = lookup(request.form.get("symbol"))
+
+        # require user input a stock symbol
+        # render apology if input blank or symbol does not exist
+        if quote == None:
+            return apology("invalid symbol", 400)
+
+        # require a user input a # of shares to buy
+        # render apology if input not a positive INT
+        try:
+            shares = int(request.form.get("shares"))
+        except:
+            return apology("shares must be a positive integer", 400)
+
+        if shares <= 0:
+            return apology("cannot buy less than 1 shares", 400)
+
+        # find username in DB --> users
+        rows = db.execute("SELECT cash FROM users WHERE id = :user_id", user_id=session["user_id"])
+
+        # Select how much cash the user currently has in users
+        # Set vars == cash in account + price per share
+        cash_remaining = rows[0]["cash"]
+        price_per_share = quote["price"]
+
+        # calculate price of requested shares
+        # call lookup to see stock's current price
+        total_price = price_per_share * shares
+
+        # render apology w/o completing a purchase if user cannot afford # of shares requested @ current price
+        if total_price > cash_remaining:
+            return apology("not enough funds")
+
+        # add 1 or more tables to finance.db to keep track of purchase
+            # define unique indexes on any field that should be unique
+            # define non-Unique indexes on any field via which you will search
+        # will be able to see user's purchases in new tables via phpliteadmin
+        db.execute("UPDATE users SET cash = cash - :price WHERE id = :user_id", price=total_price, user_id=session["user_id"])
+        db.execute("INSERT INTO transactions (user_id, symbol, shares, price_per_share) VALUES(:user_id, :symbol, :shares, :price)",
+            user_id=session["user_id"],
+            symbol=request.form.get("symbol"),
+            shares=shares,
+            price=price_per_share)
+
+        flash("Bought!")
+
+        return redirect(url_for("index"))
+
+    else:
+        return render_template("buy.html")
 
 # user's history page - requires login
 @app.route("/history")
