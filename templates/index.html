@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Welcome to the Home Page
+{% endblock %}
+
+{% block main %}
+  <h1>When the DB is connected, you will see your stock portfolio here.</h1>
+
+    {% if portfolio %}
+        <p>Here's your portfolio</p>
+        <div>
+            <table>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Price</th>
+                    <th>Shares</th>
+                    <th>Total</th>
+                </tr>
+                {% for stock in portfolio %}
+                <tr>
+                    <td>{{ stock.symbol }}</td>
+                    <td>{{ usd(stock.price) }}</td>
+                    <td>{{ stock.shares }}</td>
+                    <td>{{ usd(stock.price * stock.shares) }}</td>
+                </tr>
+                {% endfor %}
+                <tr style="border-top: 1px solid grey">
+                    <td><strong>Personal Balance:</strong></td>
+                    <td>{{ usd(user.cash) }}</td>
+                    <td><strong>Stock Total:</strong></td>
+                    <td>{{ usd(totalPrice) }}</td>
+                </tr>
+            </table>
+        </div>
+    {% else %}
+        <p>You do not have a portfolio yet, buy some stocks on the Buy Page!</p>
+    {% endif %}
+
+{% endblock %}

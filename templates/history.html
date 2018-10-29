@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Portfolio History
+{% endblock %}
+
+{% block main %}
+    <h6>Transaction history</h6><br />
+
+    {% if transactions %}
+        <div>
+            <table>
+                <tr>
+                    <th>Request</th>
+                    <th>Symbol</th>
+                    <th>Price</th>
+                    <th>Shares</th>
+                    <th>Total</th>
+                    <th>Date</th>
+                </tr>
+                {% for stock in transactions %}
+                <tr>
+                    <td>BOUGHT/SOLD</td>
+                    <td>{{ stock.symbol }}</td>
+                    <td>{{ stock.price }}</td>
+                    <td>{{ stock.shares }}</td>
+                    <td>{{ stock.price * stock.shares }}</td>
+                    <td>{{ stock.date }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    {% else %}
+        <p>You do not have any transactions yet, buy some stocks!</p>
+    {% endif %}
+{% endblock %}
