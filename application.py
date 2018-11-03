@@ -41,7 +41,21 @@ db = SQL("sqlite:///finance.db")
 def index():
     """Show portfolio of stocks"""
 
-    return render_template("portfolio.html")
+    totalPrice=0
+    portfolio = db.execute("SELECT * FROM portfolio WHERE id=:id", id=session["user_id"])
+    user = db.execute("SELECT * FROM users WHERE id=:id", id=session["user_id"])
+
+    for row in portfolio:
+        # print(row)
+        updatedInfo = lookup(row["symbol"])
+        db.execute("UPDATE portfolio SET 'price' = :u WHERE symbol = :s", u=updatedInfo['price'], s=row["symbol"])
+
+    portfolio = db.execute("SELECT * FROM portfolio WHERE id=:id", id=session["user_id"])
+
+    for row in portfolio:
+        totalPrice += row["price"] * row["shares"]
+    # print(user[0])
+    return render_template("index.html", portfolio=portfolio, usd=usd, user=user[0], totalPrice=totalPrice)
 
 # user's buy page - requires login
 @app.route("/buy", methods=["GET", "POST"])
@@ -51,7 +65,7 @@ def buy():
 
     #if user gets to page via POST by submitting a form
     if request.method == "POST":
-        # immediately set quote == to stock symbol
+        # immediately set quote == to stock symbol in form
         quote = lookup(request.form.get("symbol"))
 
         # require user input a stock symbol
@@ -64,7 +78,7 @@ def buy():
         try:
             shares = int(request.form.get("shares"))
         except:
-            return apology("shares must be a positive integer", 400)
+            return apology("you must buy more than 1 or more shares", 400)
 
         if shares <= 0:
             return apology("cannot buy less than 1 shares", 400)
@@ -86,14 +100,16 @@ def buy():
             return apology("not enough funds")
 
         # add 1 or more tables to finance.db to keep track of purchase
-            # define unique indexes on any field that should be unique
-            # define non-Unique indexes on any field via which you will search
+        # define unique indexes on any field that should be unique
+        # define non-Unique indexes on any field via which you will search
         # will be able to see user's purchases in new tables via phpliteadmin
         db.execute("UPDATE users SET cash = cash - :price WHERE id = :user_id", price=total_price, user_id=session["user_id"])
-        db.execute("INSERT INTO transactions (user_id, symbol, shares, price_per_share) VALUES(:user_id, :symbol, :shares, :price)",
+        # new_user_id = db.execute("INSERT INTO users (username, hash) VALUES(:username, :hash)",
+
+        db.execute("INSERT INTO portfolio (id, symbol, price, shares) VALUES(:user_id, :symbol, :price, :shares)",
             user_id=session["user_id"],
             symbol=request.form.get("symbol"),
-            shares=shares,
+            shares=request.form.get("shares"),
             price=price_per_share)
 
         flash("Bought!")
@@ -108,7 +124,12 @@ def buy():
 @login_required
 def history():
     """Show history of transactions"""
-    return apology("TODO")
+
+    transactions = db.execute("SELECT * from portfolio where id=:id", id=session["user_id"])
+
+    for row in transactions:
+        print(row)
+        return render_template("history.html", transactions=transactions)
 
 
 # login page
@@ -207,8 +228,7 @@ def register():
         # hash the password and insert a new user into the database
         hash = generate_password_hash(request.form.get("password"))
         new_user_id = db.execute("INSERT INTO users (username, hash) VALUES(:username, :hash)",
-                                 username=request.form.get("username"),
-                                 hash=hash)
+        username=request.form.get("username"), hash=hash)
 
         # if username already exists, return apology
         if not new_user_id:
@@ -232,7 +252,22 @@ def register():
 @login_required
 def sell():
     """Sell shares of stock"""
-    return apology("TODO")
+    if request.method == "POST":
+        symbol = request.form.get("symbol")
+        shares = int(request.form.get("shares"))
+        portfolio = db.execute("SELECT * FROM portfolio WHERE id=:id", id=session["user_id"])
+        print(portfolio)
+        for stock in portfolio:
+            print(stock)
+            if stock["symbol"] == symbol:
+                if stock["shares"] > 1 and stock["shares"] > shares:
+                    db.execute("UPDATE portfolio SET 'shares'=shares-:sh where symbol=:s", sh=shares, s=symbol)
+                elif stock["shares"] == 1:
+                    db.execute("DELETE FROM portfolio WHERE symbol=:s", s=symbol)
+
+        return redirect("/")
+    else:
+        return render_template("sell.html")
 
 # error handler to be used in application.py
 def errorhandler(e):
