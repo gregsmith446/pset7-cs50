@@ -127,9 +127,12 @@ def history():
 
     transactions = db.execute("SELECT * from portfolio where id=:id", id=session["user_id"])
 
-    for row in transactions:
-        print(row)
-        return render_template("history.html", transactions=transactions)
+    if transactions:
+        for row in transactions:
+            # print(row)
+            return render_template("history.html", transactions=transactions)
+    else:
+            return apology("You don't have any transcations", 400)
 
 
 # login page
@@ -222,7 +225,7 @@ def register():
             return apology("must provide password", 400)
 
         # Ensure password and confirmation, 'passwordagain' match
-        elif not request.form.get("password") == request.form.get("passwordagain"):
+        elif not request.form.get("password") == request.form.get("confirmation"):
             return apology("passwords do not match", 400)
 
         # hash the password and insert a new user into the database
@@ -241,7 +244,7 @@ def register():
         flash("Registered!")
 
         # Redirect user to home page
-        return redirect(url_for("index"))
+        return redirect("/", 200)
 
     # User reached route via GET, not POST (as by clicking a link or via redirect)
     else:
@@ -253,20 +256,44 @@ def register():
 def sell():
     """Sell shares of stock"""
     if request.method == "POST":
-        symbol = request.form.get("symbol")
-        shares = int(request.form.get("shares"))
-        portfolio = db.execute("SELECT * FROM portfolio WHERE id=:id", id=session["user_id"])
-        print(portfolio)
-        for stock in portfolio:
-            print(stock)
-            if stock["symbol"] == symbol:
-                if stock["shares"] > 1 and stock["shares"] > shares:
-                    db.execute("UPDATE portfolio SET 'shares'=shares-:sh where symbol=:s", sh=shares, s=symbol)
-                elif stock["shares"] == 1:
-                    db.execute("DELETE FROM portfolio WHERE symbol=:s", s=symbol)
+        # check if user input valid
+        try:
+            symbol = request.form.get("symbol")
+            shares = int(request.form.get("shares"))
+        except:
+            return apology("must select input")
+
+        # if symbol is empty return apology
+        if not symbol:
+            return apology("select valid symbol")
+
+        # if shares is empty
+        if not shares or shares <= 0:
+            return apology("enter number of shares to sell")
+
+        # is the stock in the portfolio?
+        stocksOwned = db.execute("SELECT SUM(shares) FROM portfolio WHERE id=:id AND symbol=:symbol;", \
+        id=session['user_id'], symbol=symbol['symbol'])
+        if not stocksOwned[0]['shares']:
+            return apology("you don't have that stock")
+
+        # is shares less or = to the stocks held?
+        if shares > stocksOwned[0]['SUM(shares)']:
+                return apology("you don't have that amount of stocks")
+
+        # enter a new transaction in stocks
+        # ensure a sale is a negative number
+        db.execute("INSERT INTO portfolio (id, symbol, price, shares) VALUES (:id, :symbol, :price, :shares);", \
+        id=session["user_id"], symbol=symbol, price=symbol['price'], shares =-shares)
+
+        # update cash
+        db.execute("UPDATE users SET cash = cash + :total_price WHERE id = :user_id;", total_price=shares*symbol['price'], \
+        id=session["user_id"])
 
         return redirect("/")
+
     else:
+
         return render_template("sell.html")
 
 # error handler to be used in application.py
